@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Estudio Pro - Certificación Matemática</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap');
+        
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: #f8fafc;
+            color: #1e293b;
+        }
+
+        .glass-card {
+            background: white;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+        }
+
+        .fraction {
+            display: inline-flex;
+            flex-direction: column;
+            vertical-align: middle;
+            text-align: center;
+            padding: 0 4px;
+            font-size: 0.9em;
+        }
+        .num { border-bottom: 2px solid #1e293b; padding-bottom: 1px; }
+        .den { padding-top: 1px; }
+
+        .math-container {
+            font-family: 'Cambria', 'Georgia', serif;
+            font-style: italic;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .correct-flash {
+            animation: success-pulse 0.6s ease;
+        }
+
+        @keyframes success-pulse {
+            0% { background-color: white; }
+            50% { background-color: #dcfce7; border-color: #22c55e; transform: scale(1.01); }
+            100% { background-color: white; }
+        }
+
+        .step-item {
+            border-left: 4px solid #6366f1;
+            padding: 1.25rem;
+            background: #f8faff;
+            border-radius: 0 20px 20px 0;
+            margin-bottom: 1rem;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02);
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+
+    <canvas id="confetti-canvas" class="fixed inset-0 pointer-events-none z-[100]"></canvas>
+
+    <nav class="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b px-6 py-4">
+        <div class="max-w-6xl mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-2 cursor-pointer" onclick="showView('menu')">
+                <div class="bg-indigo-600 p-2 rounded-xl text-white shadow-lg">
+                    <i data-lucide="calculator"></i>
+                </div>
+                <h1 class="text-xl font-extrabold tracking-tight">Estudio<span class="text-indigo-600">Pro</span></h1>
+            </div>
+            <div class="flex items-center gap-4">
+                <div id="user-display-name" class="hidden sm:block text-sm font-bold text-slate-500"></div>
+                <div class="flex items-center gap-2 bg-indigo-50 px-4 py-2 rounded-2xl border border-indigo-100">
+                    <i data-lucide="award" class="w-4 h-4 text-indigo-600"></i>
+                    <span id="display-xp" class="font-bold text-indigo-700">0 Puntos</span>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-6xl mx-auto p-4 md:p-8">
+        
+        <!-- BIENVENIDA -->
+        <div id="view-welcome" class="view-transition max-w-md mx-auto py-20 text-center">
+            <div class="bg-white p-10 rounded-[3rem] glass-card">
+                <div class="bg-indigo-100 w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-8 text-indigo-600">
+                    <i data-lucide="user-plus" class="w-10 h-10"></i>
+                </div>
+                <h2 class="text-3xl font-black mb-4 text-slate-900">Bienvenido</h2>
+                <p class="text-slate-500 mb-8 font-medium">Introduce tu nombre para personalizar tus certificados.</p>
+                <input type="text" id="user-name-input" placeholder="Escribe tu nombre..." class="w-full bg-slate-50 border-2 border-slate-200 rounded-2xl px-6 py-4 text-xl font-bold focus:outline-none focus:border-indigo-500 transition-all mb-6 text-center">
+                <button onclick="saveUserName()" class="w-full bg-indigo-600 text-white font-black py-4 rounded-2xl hover:bg-indigo-700 shadow-xl transition-all">Empezar Entrenamiento</button>
+            </div>
+        </div>
+
+        <!-- MENÚ -->
+        <div id="view-menu" class="hidden animate-in fade-in duration-500">
+            <div class="text-center mb-12">
+                <h2 class="text-4xl font-black text-slate-900 mb-3">Panel de Maestría</h2>
+                <p class="text-slate-500 font-medium text-lg">Consigue 10 puntos en Básico y 10 en Experto (20 total) para obtener el diploma.</p>
+            </div>
+            <div id="categories-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12"></div>
+        </div>
+
+        <!-- DIFICULTAD -->
+        <div id="view-difficulty" class="hidden animate-in fade-in duration-500 max-w-2xl mx-auto py-12 text-center">
+            <button onclick="showView('menu')" class="flex items-center gap-2 text-indigo-600 font-bold mb-8 hover:-translate-x-1 transition-transform">
+                <i data-lucide="chevron-left"></i> Volver
+            </button>
+            <h2 id="diff-title" class="text-3xl font-black mb-8 text-slate-900">Categoría</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <button onclick="startTraining(1)" class="glass-card p-10 rounded-[2.5rem] hover:border-indigo-500 transition-all group relative flex flex-col items-center">
+                    <div id="basic-completion-mark" class="hidden absolute top-4 right-4 text-emerald-500"><i data-lucide="check-circle-2"></i></div>
+                    <div class="text-indigo-600 mb-4 flex justify-center"><i data-lucide="zap" class="w-10 h-10"></i></div>
+                    <h4 class="text-xl font-black mb-2">Básico</h4>
+                    <p class="text-slate-500 text-sm mb-4 italic">0,5 puntos por acierto.</p>
+                    <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden mb-1"><div id="basic-bar" class="h-full bg-indigo-600 transition-all" style="width: 0%"></div></div>
+                    <p class="text-xs font-bold text-indigo-600" id="basic-points-status">0/10</p>
+                </button>
+                <button onclick="startTraining(2)" class="glass-card p-10 rounded-[2.5rem] border-2 border-indigo-50 hover:border-indigo-500 transition-all group relative flex flex-col items-center">
+                    <div id="adv-completion-mark" class="hidden absolute top-4 right-4 text-emerald-500"><i data-lucide="check-circle-2"></i></div>
+                    <div class="text-indigo-600 mb-4 flex justify-center"><i data-lucide="award" class="w-10 h-10"></i></div>
+                    <h4 class="text-xl font-black mb-2 text-indigo-900">Experto</h4>
+                    <p class="text-slate-500 text-sm mb-4 italic">1 punto por acierto.</p>
+                    <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden mb-1"><div id="adv-bar" class="h-full bg-indigo-600 transition-all" style="width: 0%"></div></div>
+                    <p class="text-xs font-bold text-indigo-600" id="adv-points-status">0/10</p>
+                </button>
+            </div>
+        </div>
+
+        <!-- JUEGO -->
+        <div id="view-game" class="hidden animate-in fade-in duration-500 max-w-5xl mx-auto">
+            <div id="exercise-card" class="glass-card rounded-[3rem] p-8 md:p-12 mb-8 transition-all">
+                <div class="flex justify-between items-center mb-10">
+                    <button onclick="showView('difficulty')" class="p-3 hover:bg-slate-100 rounded-2xl text-slate-400">
+                        <i data-lucide="arrow-left"></i>
+                    </button>
+                    <span id="header-label" class="px-5 py-2 bg-indigo-600 text-white rounded-full text-[10px] font-black uppercase tracking-widest">CATEGORÍA · NIVEL</span>
+                    <div class="flex items-center gap-2 text-orange-500 font-black">
+                        <i data-lucide="flame" class="w-5 h-5 fill-orange-500"></i>
+                        <span id="streak-val" class="text-lg">0</span>
+                    </div>
+                </div>
+
+                <div class="bg-slate-50 rounded-[3rem] p-8 md:p-14 min-h-[300px] flex items-center justify-center mb-10 border-2 border-slate-100 relative shadow-inner overflow-hidden">
+                    <div id="math-problem" class="math-container text-2xl md:text-3xl text-slate-800 relative z-10 text-center leading-relaxed px-4"></div>
+                </div>
+
+                <div id="game-input-area" class="space-y-6 max-w-md mx-auto text-center">
+                    <div class="relative">
+                        <input type="text" id="answer-input" autocomplete="off" placeholder="Resultado (x=...)" class="w-full bg-white border-2 border-slate-200 rounded-[2rem] px-8 py-6 text-4xl font-black focus:outline-none focus:border-indigo-500 transition-all shadow-xl text-center">
+                    </div>
+                    <button onclick="checkAnswer()" class="w-full bg-indigo-600 text-white font-black py-6 rounded-[2rem] hover:bg-indigo-700 transition-all shadow-2xl shadow-indigo-100 flex items-center justify-center gap-3 text-2xl">
+                        Validar <i data-lucide="check-circle-2" class="w-8 h-8"></i>
+                    </button>
+                </div>
+
+                <div id="resolution-area" class="hidden mt-10 space-y-6">
+                    <div class="bg-slate-50 rounded-[3rem] p-8 md:p-10 border border-slate-200">
+                        <h4 class="text-xl font-black text-indigo-900 mb-6 flex items-center gap-2">
+                            <i data-lucide="scroll-text"></i> Resolución Paso a Paso
+                        </h4>
+                        <div id="steps-container" class="space-y-4 text-left"></div>
+                    </div>
+                    <button onclick="generateNext()" class="w-full bg-indigo-600 text-white font-black py-6 rounded-[2rem] hover:bg-indigo-700 shadow-xl transition-all flex items-center justify-center gap-2 text-xl">
+                        Siguiente Ejercicio <i data-lucide="chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Stats -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
+                <div class="glass-card p-10 rounded-[3rem] flex items-center justify-between">
+                    <div class="text-left">
+                        <h5 class="text-xs font-black text-slate-400 uppercase mb-2 text-slate-400">Estado Actual</h5>
+                        <p id="rank-name" class="font-black text-indigo-900 text-2xl mb-4 text-indigo-900">Aspirante</p>
+                        <div class="space-y-2">
+                            <div class="flex items-center gap-2"><div class="w-2 h-2 rounded-full bg-indigo-400"></div><p class="text-xs font-bold text-slate-500">Básico: <span id="basic-points-display" class="text-indigo-600 font-black">0</span>/10</p></div>
+                            <div class="flex items-center gap-2"><div class="w-2 h-2 rounded-full bg-indigo-600"></div><p class="text-xs font-bold text-slate-500">Experto: <span id="adv-points-display" class="text-indigo-600 font-black">0</span>/10</p></div>
+                        </div>
+                    </div>
+                    <div class="relative w-32 h-32">
+                        <svg class="w-full h-full transform -rotate-90">
+                            <circle cx="64" cy="64" r="56" stroke="currentColor" stroke-width="12" fill="transparent" class="text-slate-100"></circle>
+                            <circle id="progress-circle" cx="64" cy="64" r="56" stroke="currentColor" stroke-width="12" fill="transparent" stroke-dasharray="351.8" stroke-dashoffset="351.8" class="text-indigo-600 transition-all duration-1000 stroke-round"></circle>
+                        </svg>
+                        <div class="absolute inset-0 flex items-center justify-center">
+                            <span id="level-num" class="text-3xl font-black">1</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass-card p-8 rounded-[3rem] bg-indigo-900 text-white flex flex-col justify-center">
+                    <div class="flex items-center gap-2 mb-4">
+                        <i data-lucide="trending-up" class="w-5 h-5 text-amber-400"></i>
+                        <span class="text-xs font-black uppercase tracking-widest text-indigo-200">Actividad</span>
+                    </div>
+                    <canvas id="progressChart" height="100"></canvas>
+                </div>
+            </div>
+
+            <div id="diploma-unlock-msg" class="hidden mt-8 bg-amber-500 text-white p-12 rounded-[3.5rem] text-center shadow-2xl animate-in zoom-in duration-500">
+                <h3 class="text-3xl font-black mb-4 flex items-center justify-center gap-3">
+                    <i data-lucide="party-popper"></i> ¡EXPERTO CERTIFICADO! <i data-lucide="party-popper"></i>
+                </h3>
+                <button onclick="downloadDiploma()" class="bg-white text-amber-600 font-black px-12 py-5 rounded-[2rem] hover:bg-amber-50 transition-all flex items-center justify-center gap-3 mx-auto shadow-xl text-xl">
+                    <i data-lucide="award"></i> Descargar Diploma PDF
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // --- MOTOR MATEMÁTICO ---
+        const MathGen = {
+            randomInt: (min, max) => Math.floor(Math.random() * (max - min + 1)) + min,
+            render: (text) => {
+                let html = text.replace(/\[f:(.*?):(.*?)\]/g, (m, n, d) => `<span class="fraction"><span class="num">${n}</span><span class="den">${d}</span></span>`);
+                html = html.replace(/x²/g, 'x<sup class="font-bold">2</sup>');
+                return html;
+            },
+            coeff: (max) => {
+                let c = MathGen.randomInt(1, max);
+                return Math.random() > 0.5 ? c : -c;
+            },
+            mcm: (a, b) => {
+                let max = Math.max(a, b);
+                let min = Math.min(a, b);
+                for(let i = max; ; i += max) if(i % min === 0) return i;
+            },
+
+            getSimple: (diff) => {
+                const x = MathGen.randomInt(-10, 15);
+                if (diff === 1) { 
+                    const mode = MathGen.randomInt(0, 2);
+                    if (mode === 0) { // x + a = b
+                        const a = MathGen.coeff(15); const b = x + a;
+                        return { q: `x ${a >= 0 ? '+ '+a : '- '+Math.abs(a)} = ${b}`, a: [x.toString()], steps: [`Pasamos el ${a} al otro miembro con signo opuesto: x = ${b} ${a >= 0 ? '- '+a : '+ '+Math.abs(a)}`, `Calculamos: x = ${x}`] };
+                    } else if (mode === 1) { // ax = b
+                        const a = MathGen.randomInt(2, 8); const b = a * x;
+                        return { q: `${a}x = ${b}`, a: [x.toString()], steps: [`El ${a} multiplica a la x, pasa dividiendo: x = ${b} / ${a}`, `Resultado: x = ${x}`] };
+                    } else { // ax + b = c
+                        const a = MathGen.randomInt(2, 5); const b = MathGen.coeff(10); const c = a * x + b;
+                        return { q: `${a}x ${b >= 0 ? '+ '+b : '- '+Math.abs(b)} = ${c}`, a: [x.toString()], steps: [`Primero movemos el ${b}: ${a}x = ${c} ${b >= 0 ? '- '+b : '+ '+Math.abs(b)}`, `Luego el ${a} pasa dividiendo: x = ${c-b} / ${a}`, `Resultado: x = ${x}`] };
+                    }
+                } else {
+                    const mode = MathGen.randomInt(0, 4);
+                    if (mode === 0) { // ax + b = cx + d
+                        const c = MathGen.randomInt(2, 4); const a = c + MathGen.randomInt(2, 5); 
+                        const b = MathGen.coeff(10); const d = (a - c) * x + b;
+                        return { q: `${a}x ${b >= 0 ? '+ '+b : '- '+Math.abs(b)} = ${c}x ${d >= 0 ? '+ '+d : '- '+Math.abs(d)}`, a: [x.toString()], steps: [`Agrupamos las x a la izquierda y los números a la derecha: ${a}x - ${c}x = ${d} ${b >= 0 ? '- '+b : '+ '+Math.abs(b)}`, `Reducimos para llegar a la forma estándar: ${a-c}x = ${d-b}`, `Despejamos la x: x = ${d-b} / ${a-c}`, `Resultado: x = ${x}`] };
+                    } else if (mode === 1) { // a - bx = c + dx
+                        const b = MathGen.randomInt(1, 3); const d = MathGen.randomInt(2, 4);
+                        const a = MathGen.coeff(15); const c = a - (b + d) * x;
+                        return { q: `${a} - ${b}x = ${c} + ${d}x`, a: [x.toString()], steps: [`Llevamos las x al primer miembro: -${b}x - ${d}x = ${c} - ${a}`, `Simplificamos términos semejantes: -${b+d}x = ${c-a}`, `Despejamos: x = ${c-a} / -${b+d}`, `Resultado: x = ${x}`] };
+                    } else if (mode === 2) { // ax + b + c = dx + e
+                        const a = MathGen.randomInt(5, 8); const d = MathGen.randomInt(2, 4);
+                        const b = MathGen.coeff(10); const c = MathGen.coeff(10);
+                        const e = (a - d) * x + b + c;
+                        return { q: `${a}x ${b >= 0 ? '+ '+b : '- '+Math.abs(b)} ${c >= 0 ? '+ '+c : '- '+Math.abs(c)} = ${d}x ${e >= 0 ? '+ '+e : '- '+Math.abs(e)}`, a: [x.toString()], steps: [`Agrupamos las x a la izquierda: ${a}x - ${d}x = ${e} ${b >= 0 ? '- '+b : '+ '+Math.abs(b)} ${c >= 0 ? '- '+c : '+ '+Math.abs(c)}`, `Obtenemos la ecuación reducida: ${a-d}x = ${e-b-c}`, `Dividimos para hallar x: x = ${e-b-c} / ${a-d}`, `Resultado: x = ${x}`] };
+                    } else if (mode === 3) { // ax = b + cx + d
+                        const c = MathGen.randomInt(2, 5); const a = c + MathGen.randomInt(2, 4);
+                        const b = MathGen.coeff(10); const d = (a - c) * x - b;
+                        return { q: `${a}x = ${b} ${c >= 0 ? '+ '+c : '- '+Math.abs(c)}x ${d >= 0 ? '+ '+d : '- '+Math.abs(d)}`, a: [x.toString()], steps: [`Pasamos el ${c}x a la izquierda restando: ${a}x ${c >= 0 ? '- '+c : '+ '+Math.abs(c)}x = ${b} ${d >= 0 ? '+ '+d : '- '+Math.abs(d)}`, `Llegamos a la forma ax = b: ${a-c}x = ${b+d}`, `Resultado: x = ${x}`] };
+                    } else { // -ax + b = c - dx
+                        const a = MathGen.randomInt(4, 7); const d = MathGen.randomInt(1, 3);
+                        const b = MathGen.coeff(10); const c = (-a + d) * x + b;
+                        return { q: `-${a}x ${b >= 0 ? '+ '+b : '- '+Math.abs(b)} = ${c} - ${d}x`, a: [x.toString()], steps: [`Movemos las x a la izquierda: -${a}x + ${d}x = ${c} ${b >= 0 ? '- '+b : '+ '+Math.abs(b)}`, `Simplificamos ambos miembros: ${-a+d}x = ${c-b}`, `Despejamos el valor: x = ${c-b} / ${-a+d}`, `Resultado: x = ${x}`] };
+                    }
+                }
+            },
+
+            getParentheses: (diff) => {
+                const x = MathGen.randomInt(-5, 8);
+                const mode = MathGen.randomInt(0, 4);
+                if (diff === 1) {
+                    if (mode === 0) { // a(x+b)=c
+                        const a = MathGen.coeff(5); const b = MathGen.coeff(5); const K = a*(x+b);
+                        return { q: `${a}(x ${b >= 0 ? '+ '+b : '- '+Math.abs(b)}) = ${K}`, a: [x.toString()], steps: [`Quitamos paréntesis: ${a}x ${a*b>=0?'+':''} ${a*b} = ${K}`, `${a}x = ${K - a*b}`, `x = ${x}`] };
+                    } else if (mode === 1) { // x + a(x+b) = c
+                        const a = MathGen.randomInt(2, 4); const b = MathGen.coeff(4); const K = x + a*(x+b);
+                        return { q: `x + ${a}(x ${b>=0?'+':'-'} ${Math.abs(b)}) = ${K}`, a: [x.toString()], steps: [`Eliminamos paréntesis: x + ${a}x ${a*b>=0?'+':''} ${a*b} = ${K}`, `${1+a}x = ${K - a*b}`, `x = ${x}`] };
+                    } else if (mode === 2) { // a(x+b) + c = d
+                        const a = MathGen.coeff(4); const b = MathGen.coeff(4); const c = MathGen.coeff(5); const K = a*(x+b)+c;
+                        return { q: `${a}(x ${b>=0?'+':'-'} ${Math.abs(b)}) ${c>=0?'+':'-'} ${Math.abs(c)} = ${K}`, a: [x.toString()], steps: [`Distribuimos: ${a}x ${a*b>=0?'+':''} ${a*b} ${c>=0?'+':'-'} ${Math.abs(c)} = ${K}`, `${a}x = ${K - a*b - c}`, `x = ${x}`] };
+                    } else if (mode === 3) { // a(x+b) = cx + d
+                        const a = MathGen.randomInt(2, 5); const b = MathGen.randomInt(1, 4); const c = MathGen.randomInt(6, 9); const K = a*(x+b) - c*x;
+                        return { q: `${a}(x + ${b}) = ${c}x ${K>=0?'+':'-'} ${Math.abs(K)}`, a:[x.toString()], steps: [`Distribuimos: ${a}x + ${a*b} = ${c}x ...`, `${a}x - ${c}x = ${K - a*b}`, `x = ${x}`] };
+                    } else { // -(x+a) = b
+                        const a = MathGen.coeff(8); const K = -(x + a);
+                        return { q: `-(x ${a>=0?'+':'-'} ${Math.abs(a)}) = ${K}`, a:[x.toString()], steps: [`Cambiamos signos: -x ${-a>=0?'+':'-'} ${Math.abs(a)} = ${K}`, `-x = ${K+a}`, `x = ${x}`] };
+                    }
+                } else {
+                    if (mode === 0) { // a(x+b) - c(x+d) = K
+                        const a = MathGen.coeff(4); const b = MathGen.coeff(3); const c = MathGen.randomInt(2, 4); const d = MathGen.coeff(3);
+                        const K = a*(x+b) - c*(x+d);
+                        return { q: `${a}(x ${b>=0?'+':'-'} ${Math.abs(b)}) - ${c}(x ${d>=0?'+':'-'} ${Math.abs(d)}) = ${K}`, a: [x.toString()], steps: [`Eliminamos los dos paréntesis cuidando el signo menos.`, `Agrupamos las x: (${a} - ${c})x = ...`, `Despejamos x = ${x}`] };
+                    } else if (mode === 1) { // a(x+b) - (x+c) + d(x+e) = K (3 paréntesis)
+                        const a = MathGen.randomInt(2, 4); const b = MathGen.coeff(3); const c = MathGen.coeff(4); const d = MathGen.randomInt(2, 4); const e = MathGen.coeff(3);
+                        const K = a*(x+b) - (x+c) + d*(x+e);
+                        return { q: `${a}(x ${b>=0?'+':'-'} ${Math.abs(b)}) - (x ${c>=0?'+':'-'} ${Math.abs(c)}) + ${d}(x ${e>=0?'+':'-'} ${Math.abs(e)}) = ${K}`, a: [x.toString()], steps: [`Multiplicamos cada factor por su paréntesis.`, `Atención al signo menos central.`, `Agrupamos x y resolvemos.`, `x = ${x}`] };
+                    } else if (mode === 2) { // -a(x-b) - c(x+d) = K
+                        const a = MathGen.randomInt(2, 4); const b = MathGen.randomInt(1, 4); const c = MathGen.randomInt(2, 4); const d = MathGen.randomInt(1, 4);
+                        const K = -a*(x-b) - c*(x+d);
+                        return { q: `-${a}(x - ${b}) - ${c}(x + ${d}) = ${K}`, a: [x.toString()], steps: [`Dos paréntesis con factores negativos exteriores.`, `Cambiamos signos según corresponda.`, `Resultado: x = ${x}`] };
+                    } else if (mode === 3) { // a - (x+b) = c(x-d)
+                        const a = MathGen.coeff(10); const b = MathGen.coeff(5); const c = MathGen.randomInt(2, 4); const d = MathGen.randomInt(1, 5);
+                        const K = a - (x+b) - c*(x-d);
+                        return { q: `${a} - (x ${b>=0?'+':'-'} ${Math.abs(b)}) = ${c}(x - ${d}) ${K>=0?'+':'-'} ${Math.abs(K)}`, a:[x.toString()], steps: [`El paréntesis con signo menos cambia signos interiores.`, `Distribuimos en el miembro derecho.`, `x = ${x}`] };
+                    } else { // -a(x+b) + c(d-x) = K
+                        const a = MathGen.randomInt(2, 4); const b = MathGen.coeff(3); const c = MathGen.randomInt(2, 4); const d = MathGen.randomInt(1, 5);
+                        const K = -a*(x+b) + c*(d-x);
+                        return { q: `-${a}(x ${b>=0?'+':'-'} ${Math.abs(b)}) + ${c}(${d} - x) = ${K}`, a: [x.toString()], steps: [`Cuidado al distribuir el factor negativo.`, `Sumamos términos semejantes.`, `x = ${x}`] };
+                    }
+                }
+            },
+
+            getDenominators: (diff) => {
+                const x = MathGen.randomInt(-5, 10);
+                const mode = MathGen.randomInt(0, 4);
+                if (diff === 1) {
+                    if (mode === 0) { // x/a + b = c
+                        const a = MathGen.randomInt(2, 5); const b = MathGen.coeff(10); const K = x + b*a;
+                        return { q: `[f:x:${a}] ${b>=0?'+':'-'} ${Math.abs(b)} = [f:${K}:${a}]`, a:[x.toString()], steps: [`Multiplicamos todo por el denominador ${a}.`, `x ${b>=0?'+':'-'} ${Math.abs(b*a)} = ${K}`, `x = ${x}`] };
+                    } else if (mode === 1) { // (x+a)/b = c
+                        const a = MathGen.coeff(10); const b = MathGen.randomInt(2, 6); const K = Math.round((x+a)/b);
+                        const finalX = K*b - a;
+                        return { q: `[f:x ${a>=0?'+':'-'} ${Math.abs(a)}:${b}] = ${K}`, a:[finalX.toString()], steps: [`El denominador ${b} pasa multiplicando: x ${a>=0?'+':'-'} ${Math.abs(a)} = ${K*b}`, `x = ${finalX}`] };
+                    } else if (mode === 2) { // x/a + x/b = c
+                        const a = 2, b = 3; const valX = MathGen.randomInt(1, 6)*6;
+                        const K = (valX/a) + (valX/b);
+                        return { q: `[f:x:${a}] + [f:x:${b}] = ${K}`, a:[valX.toString()], steps: [`m.c.m(2, 3) = 6. Multiplicamos todo por 6.`, `3x + 2x = ${K*6}`, `x = ${valX}`] };
+                    } else if (mode === 3) { // a - x/b = c
+                        const a = MathGen.coeff(15); const b = MathGen.randomInt(2, 4); const K = a - x/b;
+                        return { q: `${a} - [f:x:${b}] = ${K}`, a:[( (a-K)*b ).toString()], steps: [`Restamos ${a} al otro miembro.`, `Multiplicamos por -${b} para despejar x.`, `Resultado: x = ${(a-K)*b}`] };
+                    } else { // (x-a)/b + c = d
+                        const a = MathGen.randomInt(1, 5); const b = MathGen.randomInt(2, 4); const c = MathGen.coeff(5);
+                        const valX = x*b + a; const K = (valX-a)/b + c;
+                        return { q: `[f:x - ${a}:${b}] ${c>=0?'+':'-'} ${Math.abs(c)} = ${K}`, a:[valX.toString()], steps: [`Movemos ${c} restando, luego ${b} multiplicando.`, `x = ${valX}`] };
+                    }
+                } else {
+                    if (mode === 0) { // (ax+b)/c + (dx+e)/f = K
+                        const c=2, f=3, L=6; const a = MathGen.randomInt(2, 3), b = MathGen.coeff(4);
+                        const d = MathGen.randomInt(1, 2), e = MathGen.coeff(4);
+                        const valX = MathGen.randomInt(-4, 4); const K_num = (L/c)*(a*valX + b) + (L/f)*(d*valX + e);
+                        return { q: `[f:${a}x ${b>=0?'+':'-'} ${Math.abs(b)}:${c}] + [f:${d}x ${e>=0?'+':'-'} ${Math.abs(e)}:${f}] = [f:${K_num}:${L}]`, a:[valX.toString()], steps: [`m.c.m de 2 y 3 es 6. Multiplicamos todo por 6.`, `${L/c}(${a}x ${b>=0?'+':'-'} ${Math.abs(b)}) + ${L/f}(${d}x ${e>=0?'+':'-'} ${Math.abs(e)}) = ${K_num}`, `x = ${valX}`] };
+                    } else if (mode === 1) { // (ax+b)/c - (dx+e)/f = K
+                        const c=4, f=2, L=4; const a=3, b=MathGen.coeff(5), d=1, e=MathGen.coeff(5);
+                        const valX = MathGen.randomInt(-3, 5); const K_num = (L/c)*(a*valX + b) - (L/f)*(d*valX + e);
+                        return { q: `[f:${a}x ${b>=0?'+':'-'} ${Math.abs(b)}:${c}] - [f:${d}x ${e>=0?'+':'-'} ${Math.abs(e)}:${f}] = [f:${K_num}:${L}]`, a:[valX.toString()], steps: [`m.c.m es 4. El signo menos cambia todo el segundo numerador.`, `x = ${valX}`] };
+                    } else if (mode === 2) { // Proporción (x+a)/b = (x+c)/d
+                        const b=MathGen.randomInt(2, 5), d=MathGen.randomInt(6, 9);
+                        const a=MathGen.coeff(10), c=MathGen.coeff(10);
+                        const solX = (c*b - a*d)/(d - b);
+                        if (!Number.isInteger(solX)) return MathGen.getDenominators(2);
+                        return { q: `[f:x ${a>=0?'+':'-'} ${Math.abs(a)}:${b}] = [f:x ${c>=0?'+':'-'} ${Math.abs(c)}:${d}]`, a:[solX.toString()], steps: [`Multiplicamos en cruz: ${d}(x ${a>=0?'+':'-'} ${Math.abs(a)}) = ${b}(x ${c>=0?'+':'-'} ${Math.abs(c)})`, `Resolvemos la ecuación lineal.`, `x = ${solX}`] };
+                    } else if (mode === 3) { // a - (bx+c)/d = (ex+f)/g
+                        const d=2, g=3, L=6; const valX = MathGen.randomInt(-2, 4);
+                        const b=2, c=MathGen.coeff(4), e=1, f=MathGen.coeff(4);
+                        const a_val = ( (L/d)*(b*valX+c) + (L/g)*(e*valX+f) ) / L;
+                        if (!Number.isInteger(a_val)) return MathGen.getDenominators(2);
+                        return { q: `${a_val} - [f:${b}x ${c>=0?'+':'-'} ${Math.abs(c)}:${d}] = [f:${e}x ${f>=0?'+':'-'} ${Math.abs(f)}:${g}]`, a:[valX.toString()], steps: [`Multiplicamos todo por el m.c.m 6.`, `Quitamos paréntesis cuidando el signo menos.`, `x = ${valX}`] };
+                    } else { // Mezcla compleja (3 fracciones)
+                        const valX = MathGen.randomInt(1, 5);
+                        return { q: `[f:2x - 1:3] + [f:x + 2:2] = [f:5x + 3:4] + 1`, a:[valX.toString()], steps: [`m.c.m(2, 3, 4) = 12.`, `4(2x-1) + 6(x+2) = 3(5x+3) + 12`, `x = ${valX}`] };
+                    }
+                }
+            },
+
+            getQuadratic: (diff) => {
+                let r1, r2, a, b, c;
+                if (diff === 1) {
+                    a = 1;
+                    do { r1 = MathGen.randomInt(-6, 6); r2 = MathGen.randomInt(-6, 6); b = -(r1 + r2); c = r1 * r2; } while (b === 0 || c === 0 || r1 === r2);
+                } else {
+                    a = MathGen.randomInt(2, 3); 
+                    do { r1 = MathGen.randomInt(-5, 5); r2 = MathGen.randomInt(-5, 5); } while (r1 === 0 || r2 === 0 || r1 === r2);
+                    b = -a * (r1 + r2); c = a * r1 * r2;
+                }
+                const q = `${a === 1 ? '' : a}x² ${b > 0 ? '+ '+b+'x' : b < 0 ? '- '+Math.abs(b)+'x' : ''} ${c > 0 ? '+ '+c : '- '+Math.abs(c)} = 0`.replace(' 1x', ' x');
+                const sols = [...new Set([r1.toString(), r2.toString()])];
+                const delta = b*b - 4*a*c;
+                return { q, a: sols, steps: [`Coeficientes: a=${a}, b=${b}, c=${c}`, `Δ = (${b})² - 4·${a}·(${c}) = ${delta}`, `Fórmula: x = [f: ${-b} ± ${Math.sqrt(delta)} : ${2*a}]`, `Soluciones: ${sols.join(' y ')}`] };
+            },
+
+            getQuadraticIncomplete: (diff) => {
+                if (diff === 1) {
+                    const r = MathGen.randomInt(2, 10); const c = r*r;
+                    return { q: `x² - ${c} = 0`, a: [r.toString(), (-r).toString()], steps: [`x² = ${c}`, `x = ±√${c}`, `x = ${r}, -${r}`] };
+                } else {
+                    const b = MathGen.coeff(10);
+                    return { q: `x² ${b > 0 ? '+ '+b : '- '+Math.abs(b)}x = 0`, a: ["0", (-b).toString()], steps: [`Factor común: x(x ${b > 0 ? '+ '+b : '- '+Math.abs(b)}) = 0`, `Igualamos factores a cero.`, `Soluciones: 0, ${-b}`] };
+                }
+            },
+
+            getProblem: (diff) => {
+                const x = MathGen.randomInt(5, 12);
+                const types = [];
+                if (diff === 1) {
+                    types.push(() => ({ q: `La suma de dos números consecutivos es ${x + (x+1)}. ¿Cuál es el más pequeño?`, a: [x.toString()], steps: [`Sea x el menor. El siguiente es x+1.`, `x + x + 1 = ${2*x+1} → 2x = ${2*x}`, `x = ${x}`] }));
+                    types.push(() => ({ q: `Un número más su doble suman ${x + 2*x}. ¿Qué número es?`, a: [x.toString()], steps: [`Ecuación: x + 2x = ${3*x}`, `3x = ${3*x} → x = ${x}`] }));
+                    types.push(() => ({ q: `Si a un número le restas ${x} obtienes ${x}. ¿De qué número se trata?`, a: [(2*x).toString()], steps: [`x - ${x} = ${x} → x = ${x} + ${x}`, `x = ${2*x}`] }));
+                    types.push(() => {
+                        const d = MathGen.randomInt(5, 15);
+                        return { q: `Entre dos personas tienen ${x + (x+d)} €. Una tiene ${d} € más que la otra. ¿Cuánto la que tiene menos?`, a: [x.toString()], steps: [`x + (x + ${d}) = ${2*x+d}`, `2x = ${2*x} → x = ${x}`] };
+                    });
+                    types.push(() => ({ q: `El triple de un número es ${3*x}. ¿Cuál es el número?`, a: [x.toString()], steps: [`3x = ${3*x} → x = ${x}`] }));
+                } else {
+                    types.push(() => ({ q: `La suma de tres números consecutivos es ${3*x+3}. ¿Cuál es el menor?`, a: [x.toString()], steps: [`x + (x+1) + (x+2) = ${3*x+3}`, `3x + 3 = ${3*x+3} → 3x = ${3*x}`, `x = ${x}`] }));
+                    types.push(() => {
+                        const total = 4*x;
+                        return { q: `Un padre tiene el triple de edad que su hijo. Entre los dos suman ${total} años. ¿Hijo?`, a: [x.toString()], steps: [`Hijo: x. Padre: 3x.`, `x + 3x = ${4*x} = ${total}`, `x = ${x}`] };
+                    });
+                    types.push(() => {
+                        const Area = x * (x + 2);
+                        return { q: `Una parcela rectangular tiene una base que mide 2 m más que su altura. Si su área es ${Area} m², ¿cuánto mide la altura?`, a: [x.toString()], steps: [`Altura: x. Base: x + 2.`, `Área: x · (x + 2) = ${Area} → x² + 2x - ${Area} = 0`, `Resolvemos y descartamos la solución negativa.`, `Altura = ${x} m.`] };
+                    });
+                    types.push(() => {
+                        const P = 4*x + 10;
+                        return { q: `El perímetro de un rectángulo es ${P} cm. La base mide 5 cm más que la altura. ¿Altura?`, a: [x.toString()], steps: [`2x + 2(x + 5) = ${P} → 4x + 10 = ${P}`, `4x = ${4*x} → x = ${x}`] };
+                    });
+                    types.push(() => ({ q: `Repartimos ${6*x} €. El segundo recibe el doble que el primero, y el tercero el triple que el primero. ¿Cuánto el primero?`, a: [x.toString()], steps: [`x + 2x + 3x = ${6*x} → 6x = ${6*x}`, `x = ${x}`] }));
+                }
+                const selectedType = types[MathGen.randomInt(0, types.length - 1)];
+                return selectedType();
+            }
+        };
+
+        // --- ESTADO ---
+        let state = {
+            userName: "", category: 0, difficulty: 1, xp: 0, streak: 0, currentEx: null, isLocked: false,
+            catPoints: Array(6).fill(null).map(() => ({ basic: 0, adv: 0 }))
+        };
+
+        const categoriesUI = [
+            { name: "1º Grado Simple", icon: "plus", color: "blue" },
+            { name: "Con Paréntesis", icon: "parentheses", color: "purple" },
+            { name: "Denominadores", icon: "layout-grid", color: "emerald" },
+            { name: "2º Grado Completa", icon: "square", color: "orange" },
+            { name: "2º Grado Incompleta", icon: "target", color: "rose" },
+            { name: "Problemas y Áreas", icon: "shapes", color: "amber" }
+        ];
+
+        function showView(viewId) {
+            document.querySelectorAll('main > div').forEach(v => v.classList.add('hidden'));
+            const target = document.getElementById(`view-${viewId}`);
+            if (target) {
+                target.classList.remove('hidden');
+                if (viewId === 'game') generateNext();
+                if (viewId === 'menu') renderCategories();
+                if (viewId === 'difficulty') updateDifficultyView();
+                lucide.createIcons();
+            }
+        }
+
+        function saveUserName() {
+            const name = document.getElementById('user-name-input').value.trim();
+            if (name.length < 2) return;
+            state.userName = name;
+            document.getElementById('user-display-name').innerText = name;
+            showView('menu');
+        }
+
+        function renderCategories() {
+            const container = document.getElementById('categories-container');
+            container.innerHTML = categoriesUI.map((cat, i) => {
+                const total = state.catPoints[i].basic + state.catPoints[i].adv;
+                return `
+                <div onclick="selectCategory(${i})" class="glass-card p-8 rounded-[2.5rem] hover:border-indigo-500 hover:-translate-y-1 cursor-pointer transition-all group">
+                    <div class="flex justify-between items-start mb-6">
+                        <div class="w-14 h-14 bg-${cat.color}-100 text-${cat.color}-600 rounded-2xl flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-all">
+                            <i data-lucide="${cat.icon}"></i>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-[10px] font-black text-slate-400 uppercase">PUNTOS</p>
+                            <p class="font-black text-indigo-600 text-lg">${total.toFixed(1).replace('.0', '')}/20</p>
+                        </div>
+                    </div>
+                    <h3 class="text-xl font-black mb-2">${cat.name}</h3>
+                    <div class="text-[10px] font-bold text-slate-400 uppercase">Básico: ${state.catPoints[i].basic.toFixed(1).replace('.0', '')}/10 | Experto: ${state.catPoints[i].adv.toFixed(1).replace('.0', '')}/10</div>
+                </div>`;
+            }).join('');
+            lucide.createIcons();
+        }
+
+        function selectCategory(cat) { state.category = cat; showView('difficulty'); }
+
+        function updateDifficultyView() {
+            const cat = state.catPoints[state.category];
+            document.getElementById('diff-title').innerText = categoriesUI[state.category].name;
+            document.getElementById('basic-points-status').innerText = `${cat.basic.toFixed(1).replace('.0', '')}/10`;
+            document.getElementById('adv-points-status').innerText = `${cat.adv.toFixed(1).replace('.0', '')}/10`;
+            document.getElementById('basic-bar').style.width = `${(cat.basic/10)*100}%`;
+            document.getElementById('adv-bar').style.width = `${(cat.adv/10)*100}%`;
+            document.getElementById('basic-completion-mark').classList.toggle('hidden', cat.basic < 10);
+            document.getElementById('adv-completion-mark').classList.toggle('hidden', cat.adv < 10);
+        }
+
+        function startTraining(diff) { state.difficulty = diff; showView('game'); }
+
+        function generateNext() {
+            state.isLocked = false;
+            const gens = [MathGen.getSimple, MathGen.getParentheses, MathGen.getDenominators, MathGen.getQuadratic, MathGen.getQuadraticIncomplete, MathGen.getProblem];
+            const currentGen = gens[state.category];
+            state.currentEx = currentGen(state.difficulty);
+            document.getElementById('header-label').innerText = `${categoriesUI[state.category].name.toUpperCase()} · ${state.difficulty === 1 ? 'BÁSICO' : 'EXPERTO'}`;
+            document.getElementById('math-problem').innerHTML = MathGen.render(state.currentEx.q);
+            document.getElementById('answer-input').value = ""; document.getElementById('answer-input').focus();
+            document.getElementById('game-input-area').classList.remove('hidden');
+            document.getElementById('resolution-area').classList.add('hidden');
+            document.getElementById('exercise-card').classList.remove('correct-flash');
+            document.getElementById('diploma-unlock-msg').classList.add('hidden');
+            updateStats();
+        }
+
+        function checkAnswer() {
+            if (state.isLocked) return;
+            const input = document.getElementById('answer-input').value.toLowerCase().trim().replace(/ /g, '');
+            if (!input) return;
+            const correctSet = state.currentEx.a;
+            const userSet = input.split(/[,;]+/).filter(s => s !== "").map(s => s.replace(',', '.'));
+            const isCorrect = userSet.length === correctSet.length && correctSet.every(c => userSet.includes(c));
+            if (isCorrect) handleSuccess(); else handleFailure();
+        }
+
+        function handleSuccess() {
+            const p = state.difficulty === 1 ? 0.5 : 1; const cat = state.catPoints[state.category];
+            if (state.difficulty === 1) cat.basic = Math.min(10, cat.basic + p);
+            else cat.adv = Math.min(10, cat.adv + p);
+            state.xp += p; state.streak++;
+            document.getElementById('exercise-card').classList.add('correct-flash');
+            if (cat.basic >= 10 && cat.adv >= 10) { document.getElementById('diploma-unlock-msg').classList.remove('hidden'); startConfetti(); }
+            setTimeout(() => { if (!document.getElementById('diploma-unlock-msg').classList.contains('hidden')) return; generateNext(); }, 700);
+            updateStats();
+        }
+
+        function handleFailure() {
+            state.streak = 0; state.isLocked = true;
+            document.getElementById('game-input-area').classList.add('hidden');
+            document.getElementById('resolution-area').classList.remove('hidden');
+            const container = document.getElementById('steps-container');
+            container.innerHTML = state.currentEx.steps.map(s => `<div class="step-item font-bold text-slate-700">${MathGen.render(s)}</div>`).join('');
+            lucide.createIcons();
+            updateStats();
+        }
+
+        function updateStats() {
+            const cat = state.catPoints[state.category];
+            document.getElementById('display-xp').innerText = `${state.xp.toFixed(1).replace('.0', '')} Puntos`;
+            document.getElementById('streak-val').innerText = state.streak;
+            document.getElementById('basic-points-display').innerText = cat.basic.toFixed(1).replace('.0', '');
+            document.getElementById('adv-points-display').innerText = cat.adv.toFixed(1).replace('.0', '');
+            const total = cat.basic + cat.adv; const progress = (total / 20) * 100;
+            const level = Math.floor(state.xp / 10) + 1;
+            document.getElementById('level-num').innerText = level;
+            const offset = 351.8 - (progress / 100) * 351.8;
+            document.getElementById('progress-circle').style.strokeDashoffset = offset;
+            const ranks = ["Aspirante", "Calculador Ágil", "Maestro Novato", "Analista Real", "Sabio del Álgebra", "Genio Matemático"];
+            document.getElementById('rank-name').innerText = ranks[Math.min(level - 1, 5)];
+        }
+
+        function downloadDiploma() {
+            const { jsPDF } = window.jspdf; const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+            const catName = categoriesUI[state.category].name;
+            doc.setFillColor(248, 250, 252); doc.rect(0, 0, 297, 210, 'F');
+            doc.setDrawColor(79, 70, 229); doc.setLineWidth(5); doc.rect(10, 10, 277, 190);
+            doc.setFont("helvetica", "bold"); doc.setTextColor(30, 41, 59); doc.setFontSize(40);
+            doc.text("CERTIFICADO DE MAESTRÍA", 148, 60, { align: "center" });
+            doc.setFontSize(18); doc.setFont("helvetica", "normal"); doc.text("Se otorga con orgullo a:", 148, 85, { align: "center" });
+            doc.setFontSize(32); doc.setTextColor(79, 70, 229); doc.text(state.userName.toUpperCase(), 148, 110, { align: "center" });
+            doc.setTextColor(30, 41, 59); doc.setFontSize(18); doc.text(`Por dominar con excelencia la categoría:`, 148, 130, { align: "center" });
+            doc.setFont("helvetica", "bold"); doc.text(catName.toUpperCase(), 148, 145, { align: "center" });
+            doc.save(`Certificado_${state.userName}.pdf`);
+        }
+
+        const canvas = document.getElementById('confetti-canvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+        function startConfetti() { for (let i = 0; i < 60; i++) particles.push({ x: Math.random() * canvas.width, y: canvas.height, r: Math.random() * 5 + 2, dy: -Math.random() * 12 - 5, dx: Math.random() * 6 - 3, color: `hsl(${Math.random() * 360}, 80%, 60%)` }); }
+        function animate() { ctx.clearRect(0, 0, canvas.width, canvas.height); particles.forEach((p, i) => { p.y += p.dy; p.x += p.dx; p.dy += 0.25; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); ctx.fillStyle = p.color; ctx.fill(); if (p.y > canvas.height + 10) particles.splice(i, 1); }); requestAnimationFrame(animate); }
+
+        window.onload = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; animate(); lucide.createIcons(); document.getElementById('answer-input').addEventListener('keypress', e => { if (e.key === 'Enter') checkAnswer(); }); const ctxChart = document.getElementById('progressChart').getContext('2d'); new Chart(ctxChart, { type: 'line', data: { labels: ['S1', 'P', 'D', '2C', '2I', 'G'], datasets: [{ label: 'Puntos', data: [0, 0, 0, 0, 0, 0], borderColor: '#fff', backgroundColor: 'rgba(255,255,255,0.1)', fill: true, tension: 0.4 }] }, options: { plugins: { legend: { display: false } }, scales: { y: { display: false }, x: { ticks: { color: '#fff', font: { size: 8 } }, grid: { display: false } } } } }); };
+    </script>
+</body>
+</html>
